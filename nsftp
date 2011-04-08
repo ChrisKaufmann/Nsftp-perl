@@ -1,0 +1,127 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+use Net::SFTP;
+use CGI;
+use Data::Dumper;
+use File::Copy;
+
+my $from=shift;
+my $to=shift || usage();
+my $debug=0;
+
+if(is_remote($from) && is_remote($to))
+{
+	my %fromhash=breakout_path($from);
+	my %tohash=breakout_path($to);
+	my $from_conn=get_conn(\%fromhash);
+	my $to_conn=get_conn(\%tohash);
+	my $rnd=int(rand(100000000000));
+	my $tmpfile="/tmp/$rnd";
+	get_file($from_conn,$fromhash{'path'},$tmpfile);
+	put_file($to_conn,$tmpfile,$tohash{'path'});
+	unlink($tmpfile);
+}
+if(is_remote($from) && !is_remote($to))
+{
+	my  %fromhash=breakout_path($from);
+	my $from_conn=get_conn(\%fromhash);
+	my $destination=$to;
+	get_file($from_conn,$fromhash{'path'},$destination);
+}
+if(!is_remote($from) && is_remote($to))
+{
+	my %tohash=breakout_path($to);
+	my $to_conn=get_conn(\%tohash);
+	put_file($to_conn,$from,$tohash{'path'});
+
+}
+if(!is_remote($from) && !is_remote($to))
+{
+	copy($from,$to) or die "Couldn't copy: $!\n"
+}
+sub get_file
+{
+	my $handle=shift;
+	my $from=shift;
+	my $to=shift;
+	my $destination=$to;
+	if(-d $to)
+	{
+		my($dir,$fname)=get_path_and_filename($from);
+		$destination="$to/$fname";
+	}
+	my $fileexisted=0;
+	$handle->get($from,$destination);
+	die "Couldn't get file $from to $destination: ".$handle->status()."\n" unless -e $to;
+}
+sub put_file
+{
+	my $handle=shift;
+	my $from=shift;
+	my $to=shift;
+	die("Expected a filename in to side") if -d $from;
+	$handle->put($from,$to);
+}
+
+
+sub get_path_and_filename
+{
+	my $start=shift || die "No start passed to get_path_and_filename";
+	if((split('',$start))[-1] eq '/'){die("$start is an unexpected path\n");}
+	my @a=split(/\//,$start);
+	my $fn=pop(@a);
+	my $path=join('/',@a);
+	if((split('',$start))[0] eq '/'){$path="/$path";}
+	return($path,$fn);
+}
+sub get_conn
+{
+	my $hashref=shift || die "no hashref passed to get_conn()";
+	my %paths=%$hashref;
+	print Dumper \%paths if $debug;
+	my $sftp;
+	if($paths{'password'})
+	{
+		$sftp = Net::SFTP->new($paths{'host'},user=>$paths{'username'},password=>$paths{'password'},debug=>$debug)
+			or die"Couldn't create SFTP connection: $!\n";
+	}
+	else
+	{
+		$sftp = Net::SFTP->new($paths{'host'},user=>$paths{'username'},debug=>$debug)
+			or die"Couldn't create SFTP connection: $!\n";
+	}
+	return $sftp;
+}
+sub breakout_path
+{
+	my $path=shift || die "No path passed to breakout_path()";
+	my %rethash=();
+	my @a=split('@',$path);
+	my $last=pop(@a);
+	my $first=join('@',@a);
+	my ($username,$pass)=split(':',$first);
+	my ($host,$dest)=split(':',$last);
+	$rethash{'username'}=$username;
+	$rethash{'password'}=$pass;
+	$rethash{'host'}=$host;
+	$rethash{'path'}=$dest;
+	return %rethash;
+}
+
+sub is_remote
+{
+	my $is=shift || die "no remote passed to is_remote()";
+	return 1 if($is =~m/.+\@.+\:.+/);
+}
+sub usage
+{
+	print "usage: $0 <from> <to>\n
+	ex: $0 /etc/hosts user\@hostname:ahostsfile 
+	ex: $0 user\@hostname:/etc/hosts /tmp/thathostsfile
+	ex: $0 user\@hostname:/etc/hosts anotheruser\@anotherhost:/tmp/firsthostsfile
+\n";
+	exit();
+}
+
+
