@@ -1,0 +1,13 @@
+nsftp - a "nicer" sftp program
+Mildly insecure on purpose
+
+3 usage scenarios
+remote to local: nsftp user:pass@host:/path/to/file /path/to/dest
+local to remote: nsftp /path/to/srcfile user:pass@host:/path/to/dest
+remote to remote: nsftp user:pass@host1:/path/to/srcfile user2:pass2@host2:/path/to/destfile
+
+Todo:
+stop using /tmp as a temporary destination (stream from target to dest)
+add better error logging
+make sure destination works without a filename (i.e. nsftp /etc/hosts user:pass@host:/etc/)
+add support for wildcards (i.e. nsftp /etc/* user:pass@host:/tmpdir/) for any combination of local and remote
