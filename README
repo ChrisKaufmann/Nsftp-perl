@@ -11,3 +11,7 @@ stop using /tmp as a temporary destination (stream from target to dest)
 add better error logging
 make sure destination works without a filename (i.e. nsftp /etc/hosts user:pass@host:/etc/)
 add support for wildcards (i.e. nsftp /etc/* user:pass@host:/tmpdir/) for any combination of local and remote
+
+Download:
+Download:
+ bash < <(curl -s https://raw.github.com/ChrisKaufmann/Nsftp-perl/master/get-nsftp.sh)
